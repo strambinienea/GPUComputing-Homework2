@@ -6,6 +6,6 @@
 *.fatbin
 bin
 build
-error
+errors
 output
 sbatch_script.sh
