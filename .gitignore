@@ -7,5 +7,5 @@
 bin
 build
 errors
-output
-sbatch_script.sh
+outputs
+cuda_sbatch.sh

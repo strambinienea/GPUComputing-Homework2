@@ -3,7 +3,7 @@
 #include <iostream>
 #include <algorithm>
 
-#define MATRIX_TYPE int
+#define MATRIX_TYPE float 
 #define MAX_RANDOM_VALUE 100
 #define TILE_SIZE 32
 #define ITERATIONS 100
@@ -63,24 +63,24 @@ __global__ void naiveTranspose(const MATRIX_TYPE* matrix, MATRIX_TYPE* transpose
   */
 __global__ void coalescedTiledTranspose(const MATRIX_TYPE* matrix, MATRIX_TYPE* transposedMatrix, int matrixSize) {
 	
-	__shared__ MATRIX_TYPE tile[TILE_SIZE * TILE_SIZE];
+    __shared__ MATRIX_TYPE tile[TILE_SIZE * TILE_SIZE];
 
-	int column = blockIdx.x * blockDim.x + threadIdx.x;
-	int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int column = blockIdx.x * blockDim.x + threadIdx.x;	
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
 
-	int index = matrixSize * row + column;
+    int index = matrixSize * row + column;
     int transposedIndex = matrixSize * column + row;
 
     // Copying values from global memory to the tile in the shared memory
-	if ( index < matrixSize * matrixSize ) {
+    if ( index < matrixSize * matrixSize ) {
 		tile[threadIdx.x + threadIdx.y * TILE_SIZE] = matrix[index];	
     }
 
-	__syncthreads();
+    __syncthreads();
 
-	if ( transposedIndex < matrixSize * matrixSize) {
-		transposedMatrix[transposedIndex] = tile[threadIdx.x + threadIdx.y * TILE_SIZE];
-	}
+    if ( transposedIndex < matrixSize * matrixSize) {
+        transposedMatrix[transposedIndex] = tile[threadIdx.x + threadIdx.y * TILE_SIZE];
+    }
 }
 
 
@@ -96,24 +96,24 @@ __global__ void coalescedPaddedTiledTranspose(const MATRIX_TYPE* matrix, MATRIX_
 	
 
     // Padding the array to prevent bank conflict
-	__shared__ MATRIX_TYPE paddedTile[(TILE_SIZE + 1) * TILE_SIZE];
+    __shared__ MATRIX_TYPE paddedTile[(TILE_SIZE + 1) * TILE_SIZE];
 
-	int column = blockIdx.x * blockDim.x + threadIdx.x;
-	int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int column = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
 
-	int index = matrixSize * row + column;
+    int index = matrixSize * row + column;
     int transposedIndex = matrixSize * column + row;
 
     // Copying values from global memory to the tile in the shared memory
-	if ( index < matrixSize * matrixSize ) {
-		paddedTile[column + row * TILE_SIZE] = matrix[index];	
+    if ( index < matrixSize * matrixSize ) {
+		paddedTile[threadIdx.x + (threadIdx.y * TILE_SIZE + 1)] = matrix[index];	
     }
-	
-	__syncthreads();
 
-	if ( transposedIndex < matrixSize * matrixSize) {
-		transposedMatrix[transposedIndex] = paddedTile[column + TILE_SIZE * row];
-	}
+    __syncthreads();
+
+    if ( transposedIndex < matrixSize * matrixSize) {
+        transposedMatrix[transposedIndex] = paddedTile[threadIdx.x + (threadIdx.y * TILE_SIZE + 1)];
+    }
 }
 
 /**
@@ -131,7 +131,7 @@ __global__ void awakeKernel() { }
 void initMatrix(MATRIX_TYPE* matrix, int matrixSize) {
 
     for (int i = 0; i < matrixSize * matrixSize; i++) {
-        matrix[i] = (MATRIX_TYPE) rand() % MAX_RANDOM_VALUE;
+        matrix[i] = (MATRIX_TYPE) (rand() % MAX_RANDOM_VALUE);
     }
 }
 
@@ -263,7 +263,7 @@ int main(int argc, char** argv) {
     
     cudaEventCreate(&startNaive);
     cudaEventCreate(&stopNaive);
-    
+
     // Array to store execution times
     float naiveExecTimes[100];
 
@@ -318,21 +318,9 @@ int main(int argc, char** argv) {
         
         cudaEventRecord(stopCoalesced);
         cudaEventSynchronize(stopCoalesced);
-
-    	cudaDeviceSynchronize();
-
-	if (i == 0) {
-		cout << "MATRIX A: " << endl;
-		printMatrix(matrixA, MATRIX_SIZE);
-		cout << endl;
-
-		cout << "MATRIX B: " << endl;
-		printMatrix(matrixB, MATRIX_SIZE);
-	}
-
+	
 	cudaEventElapsedTime(&elapsedTime, startCoalesced, stopCoalesced);
         coalescedExecTimes[i] = elapsedTime;
-	cout << "ELAPSED TIME: " << elapsedTime << endl;
     } 
  
     cudaDeviceSynchronize();
@@ -347,7 +335,6 @@ int main(int argc, char** argv) {
 
 
     // <--- COALESCED PADDED MATRIX TRANPOSITION --->
-/**
     cout << "Computing the padded coalesce matrix transposition of a matrix of size "  
 	    << MATRIX_SIZE << " X " << MATRIX_SIZE << " and a grid of size " 
 	    << GRID_SIZE << " X " << GRID_SIZE << endl;
@@ -383,7 +370,7 @@ int main(int argc, char** argv) {
     // Free resources
     cudaEventDestroy(startCoalescedPadded);
     cudaEventDestroy(stopCoalescedPadded);
-*/    
+
     // <--- END COALESCED PADDED MATRIX TRANSPOSITION --->
     
     // Free arrays memory
